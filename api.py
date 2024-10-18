@@ -3,11 +3,14 @@ from fastapi.middleware.cors import CORSMiddleware
 import firebase_admin
 from firebase_admin import credentials, db
 import json
+import pyrebase
 
 with open('serviceAccountKey.json', 'r') as file:
 	config = json.load(file)
 	cred = credentials.Certificate("serviceAccountKey.json")
 	firebase_admin.initialize_app(cred, {"databaseURL": config['databaseURL']})
+	firebase = pyrebase.initialize_app(config)
+	auth = firebase.auth()
 
 app = FastAPI()
 
@@ -19,6 +22,9 @@ app.add_middleware(
 	allow_headers=['*']
 )
 
+def isTokenExpired():
+	return False
+
 """
 STUDENT
 
@@ -26,6 +32,18 @@ sid: int
 name: str
 years: dict[ year_id ]
 """
+@app.get('/user')
+@isTokenExpired
+async def get_user():
+	user = auth.sign_in_with_email_and_password('test2@email.com', 'Password123!')
+	return user
+
+@app.post('/user')
+async def create_user():
+	user = auth.create_user_with_email_and_password('test2@email.com', 'Password123!')
+	auth.update_profile(user['idToken'],display_name='test')
+	return user
+
 @app.get('/{id}')
 async def get_student(id:int):
 	ref = db.reference(f'/{id}')
@@ -46,7 +64,6 @@ async def delete_student(id:int):
 	ref = db.reference(f'/{id}')
 	ref.delete()
 	return f"success - OK"
-
 
 
 """
